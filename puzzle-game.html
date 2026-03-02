@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLUX — Lights Out Puzzle</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --cell-off: #1a1a2e;
+    --cell-on: #e8ff47;
+    --accent: #ff3c6e;
+    --dim: #3a3a5c;
+    --text: #f0f0f0;
+    --glow: #e8ff4788;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridShift 20s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes gridShift {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(40px, 40px); }
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, #0a0a0f 100%);
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  header {
+    text-align: center;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(56px, 10vw, 96px);
+    letter-spacing: 0.15em;
+    color: var(--cell-on);
+    text-shadow: 0 0 40px var(--glow), 0 0 80px var(--glow);
+    line-height: 1;
+    animation: flicker 8s infinite;
+  }
+
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.8; }
+    97% { opacity: 1; }
+    98% { opacity: 0.7; }
+    99% { opacity: 1; }
+  }
+
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .meta {
+    display: flex;
+    gap: 40px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+  }
+
+  .meta span { color: var(--cell-on); }
+
+  /* GRID */
+  .grid-wrap {
+    position: relative;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    padding: 6px;
+    background: rgba(232,255,71,0.04);
+    border: 1px solid rgba(232,255,71,0.1);
+    border-radius: 4px;
+  }
+
+  .cell {
+    width: clamp(52px, 10vw, 72px);
+    height: clamp(52px, 10vw, 72px);
+    background: var(--cell-off);
+    border: 2px solid #2a2a4a;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    overflow: hidden;
+  }
+
+  .cell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .cell.on {
+    background: var(--cell-on);
+    border-color: #f0ff80;
+    box-shadow: 0 0 18px var(--glow), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .cell.on::after { opacity: 1; }
+
+  .cell:hover { transform: scale(0.94); }
+
+  .cell:active { transform: scale(0.88); }
+
+  .cell.flash {
+    animation: cellFlash 0.25s ease;
+  }
+
+  @keyframes cellFlash {
+    0% { transform: scale(0.88); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+
+  /* Neighbors hint overlay */
+  .cell.hint-neighbor {
+    border-color: rgba(255,60,110,0.6) !important;
+    box-shadow: 0 0 10px rgba(255,60,110,0.3);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  button {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border: none;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--cell-on);
+    color: #0a0a0f;
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    background: #f5ff80;
+    box-shadow: 0 0 20px var(--glow);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--dim);
+  }
+
+  .btn-secondary:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
+
+  /* Difficulty selector */
+  .difficulty {
+    display: flex;
+    gap: 4px;
+  }
+
+  .diff-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid #2a2a4a;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .diff-btn.active {
+    background: rgba(232,255,71,0.1);
+    color: var(--cell-on);
+    border-color: var(--cell-on);
+  }
+
+  /* Win overlay */
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+
+  .win-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .win-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(60px, 12vw, 120px);
+    color: var(--cell-on);
+    text-shadow: 0 0 60px var(--glow);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { text-shadow: 0 0 40px var(--glow); }
+    50% { text-shadow: 0 0 80px var(--glow), 0 0 120px var(--glow); }
+  }
+
+  .win-stats {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    margin: 16px 0 32px;
+  }
+
+  .win-stats span { color: var(--cell-on); }
+
+  /* Instructions */
+  .instructions {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: #2e2e4e;
+    text-align: center;
+    max-width: 340px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>FLUX</h1>
+    <div class="subtitle">Lights Out Puzzle</div>
+  </header>
+
+  <div class="meta">
+    <div>MOVES: <span id="move-count">0</span></div>
+    <div>TIME: <span id="timer">0:00</span></div>
+    <div>LEVEL: <span id="level-display">1</span></div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="difficulty">
+    <button class="diff-btn active" onclick="setDifficulty('easy')">Easy</button>
+    <button class="diff-btn" onclick="setDifficulty('medium')">Medium</button>
+    <button class="diff-btn" onclick="setDifficulty('hard')">Hard</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn-primary" onclick="newGame()">New Puzzle</button>
+    <button class="btn-secondary" onclick="toggleHint()">Hint</button>
+    <button class="btn-secondary" onclick="resetGame()">Reset</button>
+  </div>
+
+  <div class="instructions">
+    Click any cell to toggle it and its neighbors.<br>
+    Turn ALL lights OFF to solve the puzzle.
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div class="win-overlay" id="win-overlay">
+  <div class="win-title">SOLVED!</div>
+  <div class="win-stats">
+    Completed in <span id="win-moves">0</span> moves &amp; <span id="win-time">0:00</span>
+  </div>
+  <button class="btn-primary" onclick="newGame(); document.getElementById('win-overlay').classList.remove('show')">Next Puzzle</button>
+</div>
+
+<script>
+const SIZE = 5;
+let grid = Array(SIZE * SIZE).fill(0);
+let initialGrid = [];
+let moves = 0;
+let seconds = 0;
+let timerInterval = null;
+let difficulty = 'easy';
+let level = 1;
+let hintMode = false;
+let bestScore = {};
+
+const difficultyMoves = { easy: 5, medium: 10, hard: 18 };
+
+function idx(r, c) { return r * SIZE + c; }
+
+function neighbors(i) {
+  const r = Math.floor(i / SIZE), c = i % SIZE;
+  const ns = [i];
+  if (r > 0) ns.push(idx(r-1, c));
+  if (r < SIZE-1) ns.push(idx(r+1, c));
+  if (c > 0) ns.push(idx(r, c-1));
+  if (c < SIZE-1) ns.push(idx(r, c+1));
+  return ns;
+}
+
+function toggle(i) {
+  neighbors(i).forEach(n => { grid[n] ^= 1; });
+}
+
+function generateSolvable(numMoves) {
+  grid = Array(SIZE * SIZE).fill(0);
+  for (let i = 0; i < numMoves; i++) {
+    const r = Math.floor(Math.random() * SIZE * SIZE);
+    toggle(r);
+  }
+  // Ensure not all off already
+  if (grid.every(c => c === 0)) generateSolvable(numMoves);
+}
+
+function setDifficulty(d) {
+  difficulty = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  newGame();
+}
+
+function newGame() {
+  clearInterval(timerInterval);
+  seconds = 0;
+  moves = 0;
+  hintMode = false;
+  generateSolvable(difficultyMoves[difficulty]);
+  initialGrid = [...grid];
+  level++;
+  document.getElementById('level-display').textContent = level;
+  updateUI();
+  startTimer();
+}
+
+function resetGame() {
+  clearInterval(timerInterval);
+  seconds = 0;
+  moves = 0;
+  grid = [...initialGrid];
+  updateUI();
+  startTimer();
+}
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    seconds++;
+    const m = Math.floor(seconds/60);
+    const s = seconds % 60;
+    document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+}
+
+function updateUI() {
+  document.getElementById('move-count').textContent = moves;
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach((cell, i) => {
+    cell.className = 'cell' + (grid[i] ? ' on' : '');
+  });
+}
+
+function handleClick(i) {
+  toggle(i);
+  moves++;
+  document.getElementById('move-count').textContent = moves;
+
+  const cell = document.querySelectorAll('.cell')[i];
+  cell.classList.add('flash');
+  setTimeout(() => cell.classList.remove('flash'), 300);
+
+  updateUI();
+  checkWin();
+}
+
+function checkWin() {
+  if (grid.every(c => c === 0)) {
+    clearInterval(timerInterval);
+    const m = Math.floor(seconds/60);
+    const s = seconds % 60;
+    document.getElementById('win-moves').textContent = moves;
+    document.getElementById('win-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    setTimeout(() => {
+      document.getElementById('win-overlay').classList.add('show');
+    }, 300);
+  }
+}
+
+function toggleHint() {
+  hintMode = !hintMode;
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach(c => c.classList.remove('hint-neighbor'));
+
+  if (!hintMode) return;
+
+  // Hint: highlight cells that when clicked would make progress
+  // Simple heuristic: find a lit cell and show its toggle neighbors
+  const lit = grid.findIndex(c => c === 1);
+  if (lit >= 0) {
+    neighbors(lit).forEach(n => {
+      cells[n].classList.add('hint-neighbor');
+    });
+  }
+}
+
+function initGrid() {
+  const gridEl = document.getElementById('grid');
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.addEventListener('click', () => handleClick(i));
+    gridEl.appendChild(cell);
+  }
+}
+
+initGrid();
+newGame();
+level = 0; // reset so first "new game" shows level 1
+document.getElementById('level-display').textContent = 1;
+</script>
+</body>
+</html>
