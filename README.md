@@ -12,7 +12,7 @@ Simple rules. Endless challenge.
 
 ## 🌐 Play Online
 
-[![Play Now](https://img.shields.io/badge/PLAY%20NOW-GitHub%20Pages-e8ff47?style=for-the-badge&labelColor=0a0a0f)](https://vybhvdev.github.io/flux/)
+[![Play Now](https://img.shields.io/badge/PLAY%20NOW-GitHub%20Pages-e8ff47?style=for-the-badge&labelColor=0a0a0f)](https://vybhvdev.github.io/Flux/)
 
 No install. No account. Just open and play.
 
@@ -95,7 +95,7 @@ Fonts:       Bebas Neue (title) · Space Mono (UI)
 
 ```bash
 git clone https://github.com/vybhvdev/flux.git
-cd YOUR_REPO
+cd Flux
 open index.html
 ```
 
